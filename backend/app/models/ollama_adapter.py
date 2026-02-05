@@ -122,7 +122,7 @@ class OllamaAdapter(BaseOCRModel):
                         content = content.split("```")[1].strip()
                     
                     # Combine stats
-                    total_duration = vision_response.get('total_duration', 0) + response.get('total_duration', 0)
+                    total_duration = (vision_response.get('total_duration') or 0) + (response.get('total_duration') or 0)
                     
                     return OCRResult(
                         text=content,
