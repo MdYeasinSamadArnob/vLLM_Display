@@ -1,0 +1,40 @@
+```json
+{
+    name: "AL-AMIN ISLAM",
+    name_bn: "আমিন ইসলাম",
+    father_name: "আমুল ইসলাম",
+    mother_name: "আমিন ইসলাম",
+    dob: "03 Apr 1999",
+    nid_no: "1234567890"
+}
+```
+```json
+{
+    name: "AL-AMIN ISLAM",
+    name_bn: "",
+    father_name: "",
+    mother_name: "",
+    dob: "",
+    nid_no: ""
+}
+```
+```json
+{
+    name: "AL-AMIN ISLAM",
+    name_bn: "আমিন ইসলাম",
+    father_name: "আমুল সরিব",
+    mother_name: "আমুলিম ওয়াম",
+    dob: "03 Apr 1969",
+    nid_no: "1234567890"
+}
+```
+```json
+{
+    name: "AL-AMIN ISLAM",
+    name_bn: "",
+    father_name: "",
+    mother_name: "",
+    dob: "03 Apr 1999",
+    nid_no: "1234567890"
+}
+```

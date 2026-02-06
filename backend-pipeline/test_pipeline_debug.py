@@ -73,7 +73,8 @@ async def test_run():
             
         try:
             # We pass bytes to call_vllm
-            result = await call_vllm(encoded_view.tobytes())
+            # Using GLM-OCR as requested
+            result = await call_vllm(encoded_view.tobytes(), model_name="glm-ocr:latest")
             print(f"    Result: {json.dumps(result)[:100]}...") # Truncate for readability
             
             ocr_outputs.append({

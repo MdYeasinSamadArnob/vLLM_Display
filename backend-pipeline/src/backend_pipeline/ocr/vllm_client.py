@@ -9,9 +9,9 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 logger = logging.getLogger(__name__)
 
 VLLM_URL = os.getenv("VLLM_URL", os.getenv("VLLM_OCR_URL", "http://10.11.200.99:8090/"))
-OLLAMA_URL = os.getenv("OLLAMA_BASE_URL")
+OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://10.11.200.109:11434")
 
-DEFAULT_MODEL = "PaddlePaddle/PaddleOCR-VL"
+DEFAULT_MODEL = "glm-ocr:latest"
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def call_vllm(image_bytes: bytes, model_name: str = DEFAULT_MODEL, api_url: str = None, prompt_text: str = None) -> dict:
@@ -21,7 +21,7 @@ async def call_vllm(image_bytes: bytes, model_name: str = DEFAULT_MODEL, api_url
     # Determine API URL
     if api_url:
         base_url = api_url
-    elif model_name == "qwen3-vl:8b" and OLLAMA_URL:
+    elif (model_name == "glm-ocr:latest" or "qwen" in model_name) and OLLAMA_URL:
         base_url = OLLAMA_URL
     else:
         base_url = VLLM_URL
@@ -30,7 +30,21 @@ async def call_vllm(image_bytes: bytes, model_name: str = DEFAULT_MODEL, api_url
     encoded_image = base64.b64encode(image_bytes).decode('utf-8')
     
     if prompt_text is None:
-        prompt_text = "Extract all text from this Bangladesh National ID card. Output the text line by line. You must transcribe the Bangla text exactly as it appears. Do not translate Bangla to English. Capture both the Bangla label and the Bangla value."
+        if "glm-ocr" in model_name or "glm" in model_name:
+             prompt_text = """Analyze this NID card image.
+Return a valid JSON object with the following keys:
+- name (English Name)
+- name_bn (Bangla Name)
+- father_name (Father's Name in Bangla)
+- mother_name (Mother's Name in Bangla)
+- dob (Date of Birth)
+- nid_no (NID Number)
+
+Ensure all Bangla text is transcribed exactly as seen in the image.
+Do not include any text outside the JSON object.
+Do not use markdown formatting."""
+        else:
+             prompt_text = "Transcribe the text in this image exactly. Output ONLY the text. Do not explain. Do not use internal monologue. Do not say 'Wait'. Do not self-correct. Just output the text found."
 
     payload = {
         "model": model_name,
@@ -50,7 +64,7 @@ async def call_vllm(image_bytes: bytes, model_name: str = DEFAULT_MODEL, api_url
 
     # Add repetition_penalty only if not using Ollama (or check if Ollama supports it via options)
     # We assume if the URL is OLLAMA_URL, we skip it or be careful.
-    is_ollama = (base_url == OLLAMA_URL)
+    is_ollama = (base_url == OLLAMA_URL) or ("11434" in base_url)
     if not is_ollama:
         payload["repetition_penalty"] = 1.05
 

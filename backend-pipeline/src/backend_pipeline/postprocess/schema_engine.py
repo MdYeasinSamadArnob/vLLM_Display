@@ -153,4 +153,11 @@ def run_schema_pipeline(schema: Dict[str, Any], ocr_text: str, image: Any) -> Di
     # if any(v is None for v in result.values()):
     #     result = call_qwen_vl(schema, image)
         
+    # Clean up values (remove quotes/commas if they look like JSON artifacts)
+    for k, v in result.items():
+        if v and isinstance(v, str):
+             # Remove surrounding quotes and trailing commas
+             clean = v.strip().strip(",").strip('"').strip("'").strip()
+             result[k] = clean
+
     return result
