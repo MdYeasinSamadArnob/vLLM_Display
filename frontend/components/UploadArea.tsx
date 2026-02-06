@@ -2,14 +2,16 @@
 import { useState, useCallback } from 'react';
 import { Upload, FileImage, X } from 'lucide-react';
 import { clsx } from 'clsx';
+import ScanningAnimation from './ScanningAnimation';
 
 interface UploadAreaProps {
   onFileSelect: (file: File) => void;
   selectedFile: File | null;
   onClear: () => void;
+  isScanning?: boolean;
 }
 
-export default function UploadArea({ onFileSelect, selectedFile, onClear }: UploadAreaProps) {
+export default function UploadArea({ onFileSelect, selectedFile, onClear, isScanning = false }: UploadAreaProps) {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -38,23 +40,26 @@ export default function UploadArea({ onFileSelect, selectedFile, onClear }: Uplo
 
   if (selectedFile) {
     return (
-      <div className="relative w-full h-64 bg-gray-50 rounded-xl border-2 border-dashed border-blue-200 flex flex-col items-center justify-center overflow-hidden">
-        <img 
-          src={URL.createObjectURL(selectedFile)} 
-          alt="Preview" 
-          className="h-full w-full object-contain opacity-50"
+      <div className="relative w-full h-96 bg-gray-900 rounded-xl border border-gray-700 flex flex-col items-center justify-center overflow-hidden shadow-inner">
+        <ScanningAnimation 
+            imageUrl={URL.createObjectURL(selectedFile)} 
+            isScanning={isScanning} 
         />
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/5">
-           <div className="bg-white p-4 rounded-lg shadow-md flex items-center gap-3">
-             <FileImage className="w-6 h-6 text-blue-600" />
-             <span className="font-medium text-gray-700">{selectedFile.name}</span>
-             <button 
-               onClick={onClear}
-               className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-             >
-               <X className="w-4 h-4 text-gray-500" />
-             </button>
+        
+        {/* Top Bar with Filename and Clear Button */}
+        <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-start z-[60] pointer-events-none">
+           <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg flex items-center gap-2 border border-white/10">
+             <FileImage className="w-4 h-4 text-blue-400" />
+             <span className="text-sm font-medium text-gray-200">{selectedFile.name}</span>
            </div>
+           
+           <button 
+             onClick={onClear}
+             className="pointer-events-auto p-2 bg-black/50 hover:bg-red-500/80 text-white rounded-full backdrop-blur-md transition-colors border border-white/10"
+             title="Remove image"
+           >
+             <X className="w-4 h-4" />
+           </button>
         </div>
       </div>
     );

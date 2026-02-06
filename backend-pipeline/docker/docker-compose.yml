@@ -1,0 +1,40 @@
+
+version: '3.8'
+
+services:
+  # External Redis is used, so we don't need a local redis service.
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8001:8000"
+    environment:
+      - REDIS_URL=redis://default@10.11.200.99:6390
+      - VLLM_URL=http://10.11.200.99:8090/
+    # depends_on:
+    #   - redis
+    restart: always
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    deploy:
+      replicas: 2
+    environment:
+      - REDIS_URL=redis://default@10.11.200.99:6390
+      - VLLM_URL=http://10.11.200.99:8090/
+    # depends_on:
+    #   - redis
+    restart: always
+
+# volumes:
+#   redis_data:

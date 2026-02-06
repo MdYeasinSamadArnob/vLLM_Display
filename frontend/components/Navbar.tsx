@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Activity, FileText, BarChart } from 'lucide-react';
+import { Activity, FileText, BarChart, GitMerge } from 'lucide-react';
 
 export default function Navbar() {
   return (
@@ -12,6 +12,10 @@ export default function Navbar() {
         <Link href="/" className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors">
           <Activity className="w-4 h-4" />
           <span>Scanner</span>
+        </Link>
+        <Link href="/pipeline" className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors">
+          <GitMerge className="w-4 h-4" />
+          <span>Pipeline</span>
         </Link>
         <Link href="/benchmark" className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors">
           <BarChart className="w-4 h-4" />

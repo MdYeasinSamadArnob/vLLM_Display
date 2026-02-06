@@ -43,6 +43,30 @@ export const processImage = async (file: File, modelName?: string, prompt?: stri
   return response.data;
 };
 
+export interface PipelineJobResponse {
+  job_id: string;
+  status: string;
+}
+
+export const submitPipelineJob = async (file: File, schema?: string): Promise<PipelineJobResponse> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (schema) formData.append('schema', schema);
+
+  // Use the port 8001 directly for the backend pipeline
+  const pipelineUrl = 'http://localhost:8001'; 
+  const response = await axios.post(`${pipelineUrl}/v1/ocr/schema`, formData, {
+     headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
+};
+
+export const getPipelineResult = async (jobId: string) => {
+    const pipelineUrl = 'http://localhost:8001';
+    const response = await axios.get(`${pipelineUrl}/v1/ocr/results/${jobId}`);
+    return response.data;
+};
+
 export const fetchBenchmarks = async () => {
   const response = await api.get('/benchmark');
   return response.data;

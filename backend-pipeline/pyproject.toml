@@ -1,0 +1,23 @@
+[project]
+name = "backend-pipeline"
+version = "0.1.0"
+description = "Bank-grade OCR pipeline with deterministic first approach"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+    "redis",
+    "httpx",
+    "opencv-python-headless",
+    "numpy",
+    "pillow",
+    "orjson",
+    "python-dotenv",
+    "tenacity",
+    "prometheus-client"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

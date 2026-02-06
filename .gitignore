@@ -10,6 +10,21 @@ backend/.env
 backend/uploads/
 backend/sample-images/*_processed.png
 
+backend-pipeline/venv/
+backend-pipeline/__pycache__/
+backend-pipeline/*.pyc
+backend-pipeline/.env
+backend-pipeline/uploads/
+backend-pipeline/sample-images/*_processed.png
+
+# Ignore the venv inside the backend-pipeline folder
+backend-pipeline/.venv/
+
+# General Python ignores
+__pycache__/
+*.pyc
+
+
 # Frontend (Node.js/Next.js)
 frontend/node_modules/
 frontend/.next/
