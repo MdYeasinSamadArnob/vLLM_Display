@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 from app.models.base import BaseOCRModel
 from app.models.ollama_adapter import OllamaAdapter
+from app.models.vllm_adapter import VLLMAdapter
 
 class ModelManager:
     def __init__(self):
@@ -10,7 +11,11 @@ class ModelManager:
         # Register default models
         self.register_model(OllamaAdapter("deepseek-ocr:latest")) 
         self.register_model(OllamaAdapter("qwen3-vl:8b"))
-        self._active_model_name = "deepseek-ocr:latest" # Set default active model
+        
+        # Register HunyuanOCR on external host using VLLM Adapter
+        self.register_model(VLLMAdapter("tencent/HunyuanOCR", base_url="http://10.11.200.99:8091/"))
+        
+        self._active_model_name = "qwen3-vl:8b" # Set default active model
         # self.register_model(OllamaAdapter("llama3.2:3b")) # Text only, but good for testing
 
     def register_model(self, model: BaseOCRModel):

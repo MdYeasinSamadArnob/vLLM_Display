@@ -99,10 +99,10 @@ async def process_job(job: dict):
                 
                 # Dynamic Rules
                 if "name" in schema_keys or "name_bn" in schema_keys:
-                    verification_prompt += f"1. Verify and fix spelling, spacing, and typos in 'name' (English). For 'name_bn' (Bangla), extract it from the image if missing or invalid, as the Scribe may not capture Bangla.\n"
+                    verification_prompt += f"1. Review 'name' (English) and 'name_bn' (Bangla). The Scribe uses a high-quality OCR (Hunyuan) which usually gets the characters right. Only correct if you see a clear spelling/spacing error or if the field is missing.\n"
                 
                 if "address_bn" in schema_keys:
-                    verification_prompt += f"3. Extract or Verify the Bangla Address ('address_bn'). Ensure it matches the image text exactly.\n"
+                    verification_prompt += f"3. Verify 'address_bn'. Trust the Scribe unless there is a major hallucination or missing text.\n"
                 
                 if "place_of_birth" in schema_keys:
                     verification_prompt += f"4. Verify 'place_of_birth'.\n"

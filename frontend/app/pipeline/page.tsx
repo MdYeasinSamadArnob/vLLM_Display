@@ -13,6 +13,27 @@ export default function PipelinePage() {
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [schema, setSchema] = useState<string>('');
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (jobId && status !== 'completed' && status !== 'failed' && startTime) {
+      interval = setInterval(() => {
+        setElapsedTime(Date.now() - startTime);
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [jobId, status, startTime]);
+
+  const formatTime = (ms: number) => {
+    if (ms < 1000) return '0s';
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return `${(ms / 1000).toFixed(1)}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -49,6 +70,8 @@ export default function PipelinePage() {
     setStatus(null);
     setResult(null);
     setError(null);
+    setStartTime(null);
+    setElapsedTime(0);
   };
 
   const NID_SCHEMA = JSON.stringify({
@@ -75,6 +98,8 @@ export default function PipelinePage() {
     resetState();
     
     try {
+      setStartTime(Date.now());
+      setElapsedTime(0);
       const response = await submitPipelineJob(file, schema || undefined);
       setJobId(response.job_id);
       setStatus(response.status);
@@ -139,14 +164,14 @@ export default function PipelinePage() {
 
                     <button
                         onClick={handleSubmit}
-                        disabled={!file || (!!jobId && status !== 'completed')}
+                        disabled={!file || (!!jobId && status !== 'completed' && status !== 'failed')}
                         className={`mt-4 w-full py-3 px-4 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors ${
-                            !file || (!!jobId && status !== 'completed')
+                            !file || (!!jobId && status !== 'completed' && status !== 'failed')
                             ? 'bg-gray-300 cursor-not-allowed' 
                             : 'bg-blue-600 hover:bg-blue-700'
                         }`}
                     >
-                        {jobId && status !== 'completed' ? 'Processing...' : (jobId ? 'Start Again' : 'Start Pipeline')}
+                        {jobId && status !== 'completed' && status !== 'failed' ? 'Processing...' : (jobId ? 'Start Again' : 'Start Pipeline')}
                     </button>
                 </div>
             </div>
@@ -169,7 +194,14 @@ export default function PipelinePage() {
                                 )}
                                 <div>
                                     <div className="font-medium text-gray-900">Job ID: {jobId}</div>
-                                    <div className="text-sm text-gray-500 capitalize">{status}</div>
+                                    <div className="flex items-center gap-2 text-sm text-gray-500 capitalize">
+                                        <span>{status}</span>
+                                        {elapsedTime > 0 && (
+                                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full font-mono">
+                                                {formatTime(elapsedTime)}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -8,10 +8,10 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
 
-VLLM_URL = os.getenv("VLLM_URL", os.getenv("VLLM_OCR_URL", "http://10.11.200.99:8090/"))
+VLLM_URL = os.getenv("VLLM_URL", os.getenv("VLLM_OCR_URL", "http://10.11.200.99:8091/"))
 OLLAMA_URL = os.getenv("OLLAMA_BASE_URL")
 
-DEFAULT_MODEL = "PaddlePaddle/PaddleOCR-VL"
+DEFAULT_MODEL = "tencent/HunyuanOCR"
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def call_vllm(image_bytes: bytes, model_name: str = DEFAULT_MODEL, api_url: str = None, prompt_text: str = None) -> dict:
@@ -20,7 +20,7 @@ async def call_vllm(image_bytes: bytes, model_name: str = DEFAULT_MODEL, api_url
     """
     # Resolve URLs dynamically to support late env loading
     current_ollama_url = os.getenv("OLLAMA_BASE_URL")
-    current_vllm_url = os.getenv("VLLM_URL", os.getenv("VLLM_OCR_URL", "http://10.11.200.99:8090/"))
+    current_vllm_url = os.getenv("VLLM_URL", os.getenv("VLLM_OCR_URL", "http://10.11.200.99:8091/"))
 
     # Determine API URL
     if api_url:
@@ -35,7 +35,7 @@ async def call_vllm(image_bytes: bytes, model_name: str = DEFAULT_MODEL, api_url
     encoded_image = base64.b64encode(image_bytes).decode('utf-8')
     
     if prompt_text is None:
-        prompt_text = "Extract only English text, Numbers, and Dates from this Bangladesh National ID card. Do NOT extract Bangla text. Output the text line by line."
+        prompt_text = "Extract only English and Bangla text, Numbers, and Dates from this Bangladesh National ID card. Output the text line by line."
 
     payload = {
         "model": model_name,

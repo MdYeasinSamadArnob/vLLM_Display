@@ -8,10 +8,11 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 class OllamaAdapter(BaseOCRModel):
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, base_url: str = None):
         self._model_name = model_name
+        self.base_url = base_url or settings.OLLAMA_BASE_URL
         # Set a very long timeout (600 seconds) to avoid timeouts on slow generations/loading
-        self.client = ollama.AsyncClient(host=settings.OLLAMA_BASE_URL, timeout=600)
+        self.client = ollama.AsyncClient(host=self.base_url, timeout=600)
 
     @property
     def model_name(self) -> str:
@@ -24,7 +25,7 @@ class OllamaAdapter(BaseOCRModel):
     async def load(self) -> None:
         # Ollama loads models on demand usually, but we can pull it to ensure it exists
         try:
-            logger.info(f"Pulling model {self._model_name} from {settings.OLLAMA_BASE_URL}...")
+            logger.info(f"Pulling model {self._model_name} from {self.base_url}...")
             await self.client.pull(self._model_name)
             logger.info(f"Model {self._model_name} ready.")
         except Exception as e:

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import UploadArea from '@/components/UploadArea';
 import ScanningAnimation from '@/components/ScanningAnimation';
@@ -15,6 +15,28 @@ export default function Home() {
   const [result, setResult] = useState<OCRResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [template, setTemplate] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isScanning && startTime) {
+      interval = setInterval(() => {
+        setElapsedTime(Date.now() - startTime);
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [isScanning, startTime]);
+
+  const formatTime = (ms: number) => {
+    if (ms < 1000) return '0s';
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return `${(ms / 1000).toFixed(1)}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
 
   const handleFileSelect = (selectedFile: File) => {
     setFile(selectedFile);
@@ -26,13 +48,15 @@ export default function Home() {
     if (!file) return;
 
     setIsScanning(true);
+    setStartTime(Date.now());
+    setElapsedTime(0);
     setError(null);
     setResult(null);
 
     try {
       // Simulate minimum scanning time for the animation to show off
       const [apiResult] = await Promise.all([
-        processImage(file, undefined, undefined, template),
+        processImage(file, selectedModel, undefined, template),
         new Promise(resolve => setTimeout(resolve, 2000)) 
       ]);
       setResult(apiResult);
@@ -63,7 +87,7 @@ export default function Home() {
             <p className="text-gray-500 mt-1">Extract text from images using state-of-the-art VLLM models.</p>
           </div>
           <div className="flex items-center gap-4">
-             <ModelSelector />
+             <ModelSelector onModelChange={setSelectedModel} />
           </div>
         </div>
 
@@ -101,7 +125,12 @@ export default function Home() {
               </div>
 
               {/* Action Bar */}
-              <div className="mt-6 flex justify-end gap-3 shrink-0">
+              <div className="mt-6 flex justify-end items-center gap-3 shrink-0">
+                 {elapsedTime > 0 && (
+                    <span className="text-xs text-gray-400 font-mono mr-2">
+                        {formatTime(elapsedTime)}
+                    </span>
+                 )}
                  {file && (
                     <button 
                         onClick={handleClear}
