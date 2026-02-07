@@ -2,6 +2,7 @@
 import logging
 import cv2
 import numpy as np
+import time
 from ..preprocess.normalize import normalize
 from ..preprocess.multiview import generate_views
 from ..ocr.vllm_client import call_vllm
@@ -22,6 +23,7 @@ async def process_job(job: dict):
     5. Schema/Text Extraction
     6. Save Result
     """
+    start_time = time.time()
     job_id = job.get("job_id")
     logger.info(f"Processing job {job_id}")
     
@@ -40,32 +42,51 @@ async def process_job(job: dict):
         image_bytes = image_data
         
     # 1. Preprocess
+    t0 = time.time()
     image = normalize(image_bytes)
+    t1 = time.time()
+    logger.info(f"[Timing] Preprocessing: {(t1-t0)*1000:.2f}ms")
     
     # 2. Generate Views
     views = generate_views(image)
+    t2 = time.time()
+    logger.info(f"[Timing] View Generation: {(t2-t1)*1000:.2f}ms")
     
-    # 3. Run OCR on views (Parallelize if possible)
-    # For now, sequential await
-    ocr_outputs = []
-    for view_img, off_x, off_y in views:
-        # Encode view back to bytes for vLLM client
+    # 3. Run OCR on views (Parallelize)
+    ocr_tasks = []
+    
+    async def process_view(view_img, off_x, off_y):
         success, encoded_view = cv2.imencode('.jpg', view_img)
         if success:
             try:
+                # Add slight delay to prevent overwhelming the VLLM batch scheduler if needed
+                # await asyncio.sleep(0.01) 
                 result = await call_vllm(encoded_view.tobytes())
-                # Add offsets to result metadata or structure so consensus knows
-                # Assuming result is a dict, we wrap it
-                ocr_outputs.append({
+                return {
                     "result": result,
                     "offset_x": off_x,
                     "offset_y": off_y
-                })
+                }
             except Exception as e:
                 logger.error(f"OCR failed for a view: {e}")
+                return None
+        return None
+
+    for view_img, off_x, off_y in views:
+        ocr_tasks.append(process_view(view_img, off_x, off_y))
+    
+    # Run all OCR tasks concurrently
+    t3_start = time.time()
+    results = await asyncio.gather(*ocr_tasks)
+    t3_end = time.time()
+    logger.info(f"[Timing] Parallel OCR (5 Views): {(t3_end-t3_start)*1000:.2f}ms")
+    
+    ocr_outputs = [r for r in results if r is not None]
     
     # 4. Consensus
     merged = consensus(ocr_outputs)
+    t4 = time.time()
+    logger.info(f"[Timing] Consensus: {(t4-t3_end)*1000:.2f}ms")
     
     # 5. Postprocess
     mode = job.get("mode", "text")
@@ -81,6 +102,7 @@ async def process_job(job: dict):
         # Constraint: Do NOT change DOB or NID No unless critical. Trust Scribe for numbers.
         
         logger.info("Running Qwen3-VL Judge for Verification...")
+        t_judge_start = time.time()
         try:
             success, encoded_norm = cv2.imencode('.jpg', image)
             if success:
@@ -161,6 +183,11 @@ async def process_job(job: dict):
         except Exception as e:
             logger.error(f"Qwen Judge failed: {e}")
         
+        t_judge_end = time.time()
+        logger.info(f"[Timing] Judge Verification: {(t_judge_end-t_judge_start)*1000:.2f}ms")
+        
     # 6. Save Result
     save_result(job_id, final_result)
+    end_time = time.time()
+    logger.info(f"[Timing] Total Pipeline Duration: {(end_time-start_time)*1000:.2f}ms")
     logger.info(f"Job {job_id} completed")

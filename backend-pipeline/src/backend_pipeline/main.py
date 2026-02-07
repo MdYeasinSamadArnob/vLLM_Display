@@ -14,27 +14,42 @@ async def lifespan(app: FastAPI):
     # Startup
     init_stream()
     
-    # Start the worker process
+    # Start worker processes
     # Using the same python executable as the current process
     # Ensure PYTHONPATH is absolute path to src
     src_path = os.path.join(os.getcwd(), "src")
-    worker_process = subprocess.Popen(
-        [sys.executable, "-m", "backend_pipeline.workers.worker"],
-        cwd=os.getcwd(), # Ensure we are in project root
-        env={**os.environ, "PYTHONPATH": src_path}
-    )
-    print(f"Started worker process with PID: {worker_process.pid} (PYTHONPATH={src_path})")
+    
+    num_workers = int(os.getenv("NUM_WORKERS", "2")) # Default to 2 workers
+    workers = []
+    
+    print(f"Starting {num_workers} worker processes...")
+    
+    for i in range(num_workers):
+        worker_process = subprocess.Popen(
+            [sys.executable, "-u", "-m", "backend_pipeline.workers.worker"],
+            cwd=os.getcwd(), # Ensure we are in project root
+            env={**os.environ, "PYTHONPATH": src_path},
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            bufsize=0
+        )
+        workers.append(worker_process)
+        print(f"Started worker process {i+1} with PID: {worker_process.pid}")
     
     yield
     
     # Shutdown
-    print("Shutting down worker process...")
-    worker_process.terminate()
-    try:
-        worker_process.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        worker_process.kill()
-    print("Worker process stopped.")
+    print("Shutting down worker processes...")
+    for worker_process in workers:
+        worker_process.terminate()
+    
+    for worker_process in workers:
+        try:
+            worker_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            worker_process.kill()
+            
+    print("All worker processes stopped.")
 
 app = FastAPI(title="backend-pipeline OCR", lifespan=lifespan)
 

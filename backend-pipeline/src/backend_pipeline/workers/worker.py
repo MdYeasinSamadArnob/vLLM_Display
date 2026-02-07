@@ -22,7 +22,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("worker")
 
-WORKER_NAME = "worker-1"
+import uuid
+
+WORKER_NAME = f"worker-{uuid.uuid4().hex[:8]}"
 
 async def worker_loop():
     logger.info(f"Starting worker {WORKER_NAME}...")

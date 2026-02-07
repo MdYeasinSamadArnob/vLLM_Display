@@ -37,24 +37,31 @@ export default function PipelinePage() {
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-
-    if (jobId && status !== 'completed') {
-      interval = setInterval(async () => {
+    if (jobId && status !== 'completed' && status !== 'failed') {
+      // Adaptive polling: Poll faster initially (500ms), then back off
+      const poll = async () => {
         try {
           const data = await getPipelineResult(jobId);
           if (data.status === 'completed') {
             setStatus('completed');
             setResult(data.result);
-            clearInterval(interval);
+          } else if (data.status === 'failed') {
+            setStatus('failed');
+            setError("Pipeline processing failed");
           } else {
             setStatus('processing');
           }
         } catch (err) {
           console.error("Polling error", err);
-          setError("Failed to fetch status");
-          clearInterval(interval);
+          // Don't stop polling on transient errors
         }
-      }, 2000);
+      };
+
+      // Initial poll immediately
+      poll();
+      
+      // Then interval
+      interval = setInterval(poll, 500); 
     }
 
     return () => clearInterval(interval);
