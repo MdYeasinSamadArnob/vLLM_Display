@@ -18,19 +18,24 @@ async def call_vllm(image_bytes: bytes, model_name: str = DEFAULT_MODEL, api_url
     """
     Call the vLLM/Ollama service for OCR.
     """
+    # Resolve URLs dynamically to support late env loading
+    current_ollama_url = os.getenv("OLLAMA_BASE_URL")
+    current_vllm_url = os.getenv("VLLM_URL", os.getenv("VLLM_OCR_URL", "http://10.11.200.99:8090/"))
+
     # Determine API URL
     if api_url:
         base_url = api_url
-    elif model_name == "qwen3-vl:8b" and OLLAMA_URL:
-        base_url = OLLAMA_URL
+    # elif model_name == "qwen3-vl:8b" and OLLAMA_URL:
+    elif model_name == "qwen3-vl:8b-instruct" and current_ollama_url:
+        base_url = current_ollama_url
     else:
-        base_url = VLLM_URL
+        base_url = current_vllm_url
 
     # Encode image to base64
     encoded_image = base64.b64encode(image_bytes).decode('utf-8')
     
     if prompt_text is None:
-        prompt_text = "Extract all text from this Bangladesh National ID card. Output the text line by line. You must transcribe the Bangla text exactly as it appears. Do not translate Bangla to English. Capture both the Bangla label and the Bangla value."
+        prompt_text = "Extract only English text, Numbers, and Dates from this Bangladesh National ID card. Do NOT extract Bangla text. Output the text line by line."
 
     payload = {
         "model": model_name,

@@ -60,6 +60,16 @@ export default function PipelinePage() {
     "nid_no": "NID Number (10, 13, or 17 digits)"
   }, null, 2);
 
+  const NID_BACK_SCHEMA = JSON.stringify({
+    "address_bn": "Address in Bangla (Thikana)",
+    "blood_group": "Blood Group",
+    "place_of_birth": "Place of Birth",
+    "issue_date": "Issue Date",
+    "mrz_line1": "MRZ Line 1",
+    "mrz_line2": "MRZ Line 2",
+    "mrz_line3": "MRZ Line 3"
+  }, null, 2);
+
   const handleSubmit = async () => {
     if (!file) return;
     resetState();
@@ -104,12 +114,20 @@ export default function PipelinePage() {
                             <label className="block text-sm font-medium text-black">
                                 Schema (JSON, optional)
                             </label>
-                            <button 
-                                onClick={() => setSchema(NID_SCHEMA)}
-                                className="text-xs bg-gray-100 hover:bg-gray-200 text-black px-2 py-1 rounded transition-colors"
-                            >
-                                Load NID Default
-                            </button>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => setSchema(NID_SCHEMA)}
+                                    className="text-xs bg-gray-100 hover:bg-gray-200 text-black px-2 py-1 rounded transition-colors"
+                                >
+                                    Load NID Front
+                                </button>
+                                <button 
+                                    onClick={() => setSchema(NID_BACK_SCHEMA)}
+                                    className="text-xs bg-gray-100 hover:bg-gray-200 text-black px-2 py-1 rounded transition-colors"
+                                >
+                                    Load NID Back
+                                </button>
+                            </div>
                         </div>
                         <textarea 
                             className="w-full h-32 p-3 border border-gray-300 rounded-lg font-mono text-sm text-gray-900"
@@ -121,14 +139,14 @@ export default function PipelinePage() {
 
                     <button
                         onClick={handleSubmit}
-                        disabled={!file || !!jobId}
+                        disabled={!file || (!!jobId && status !== 'completed')}
                         className={`mt-4 w-full py-3 px-4 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors ${
-                            !file || !!jobId 
+                            !file || (!!jobId && status !== 'completed')
                             ? 'bg-gray-300 cursor-not-allowed' 
                             : 'bg-blue-600 hover:bg-blue-700'
                         }`}
                     >
-                        {jobId ? 'Processing...' : 'Start Pipeline'}
+                        {jobId && status !== 'completed' ? 'Processing...' : (jobId ? 'Start Again' : 'Start Pipeline')}
                     </button>
                 </div>
             </div>

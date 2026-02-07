@@ -16,12 +16,14 @@ async def lifespan(app: FastAPI):
     
     # Start the worker process
     # Using the same python executable as the current process
+    # Ensure PYTHONPATH is absolute path to src
+    src_path = os.path.join(os.getcwd(), "src")
     worker_process = subprocess.Popen(
         [sys.executable, "-m", "backend_pipeline.workers.worker"],
         cwd=os.getcwd(), # Ensure we are in project root
-        env={**os.environ, "PYTHONPATH": "backend-pipeline/src"}
+        env={**os.environ, "PYTHONPATH": src_path}
     )
-    print(f"Started worker process with PID: {worker_process.pid}")
+    print(f"Started worker process with PID: {worker_process.pid} (PYTHONPATH={src_path})")
     
     yield
     

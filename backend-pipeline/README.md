@@ -9,48 +9,55 @@ This directory contains the backend pipeline service for the VLLM OCR project.
 
 ## Setup
 
-1.  **Create a Virtual Environment**:
+1.  **Check Location**:
+    Look at your terminal prompt. It should end in `backend-pipeline`.
     
-    From the project root (`G:\_era\vllm-ocr`):
+    *   If you are in `src\backend_pipeline`, run:
+        ```powershell
+        cd ..\..
+        ```
+    *   To be sure, run:
+        ```powershell
+        cd g:\_era\vllm-ocr\backend-pipeline
+        ```
+
+2.  **Create Virtual Environment** (if not exists):
     ```powershell
-    py -m venv backend-pipeline\.venv
+    py -m venv .venv
     ```
 
-2.  **Activate Virtual Environment**:
+3.  **Activate Virtual Environment**:
+    ```powershell
+    .\.venv\Scripts\activate
+    ```
+    *If you see an error, ensure you ran step 2 and are in the correct folder.*
+
+4.  **Install Dependencies**:
     
     ```powershell
-    backend-pipeline\.venv\Scripts\activate
+    pip install -r requirements.txt
     ```
 
-3.  **Install Dependencies**:
-    
-    ```powershell
-    pip install fastapi uvicorn[standard] pydantic redis httpx opencv-python-headless numpy pillow orjson python-dotenv tenacity prometheus-client
-    ```
+## Running the Backend (Local Development)
 
-## Running the Services
+The backend is designed to run as a single process for local development. When you start the API server, it automatically launches the background worker process.
 
-You need to run two separate processes: the API server and the Worker.
-
-### 1. API Server
-
-Starts the FastAPI server on port 8001.
+Run the following command:
 
 ```powershell
-# From project root
-backend-pipeline\.venv\Scripts\python -m uvicorn backend_pipeline.main:app --host 0.0.0.0 --port 8001 --reload --app-dir backend-pipeline/src
+uvicorn backend_pipeline.main:app --app-dir src --host 0.0.0.0 --port 8001 --reload
 ```
 
-### 2. Worker
-
-Starts the background worker that processes OCR jobs from Redis.
-
-```powershell
-# From project root
-set PYTHONPATH=backend-pipeline/src
-backend-pipeline\.venv\Scripts\python -m backend_pipeline.workers.worker
-```
+*   **API Server**: `http://localhost:8001`
+*   **Swagger UI**: `http://localhost:8001/docs`
+*   **Worker**: Starts automatically in the background.
 
 ## Configuration
 
-Check `.env` for configuration settings (Redis URL, etc.).
+Ensure a `.env` file exists in `backend-pipeline` with necessary configuration.
+
+Example `.env`:
+```env
+REDIS_URL=redis://default:password@10.11.200.99:6390
+VLLM_URL=http://10.11.200.99:8090/
+```

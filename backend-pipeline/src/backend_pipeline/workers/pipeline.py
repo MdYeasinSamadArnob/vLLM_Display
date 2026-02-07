@@ -76,43 +76,90 @@ async def process_job(job: dict):
         schema = job.get("schema", {})
         final_result = run_schema_pipeline(schema, merged, image)
         
-        # Fallback Logic: If name_bn is missing, try Qwen3-VL
-        if "name_bn" in schema and not final_result.get("name_bn"):
-            logger.info("Bangla text missing. Attempting Qwen3-VL fallback.")
-            try:
-                success, encoded_norm = cv2.imencode('.jpg', image)
-                if success:
-                    # Note: We rely on call_vllm logic to pick up OLLAMA_URL for this model name
-                    qwen_result = await call_vllm(
-                        encoded_norm.tobytes(), 
-                        model_name="qwen3-vl:8b",
-                        prompt_text="Extract the following fields from this Bangladesh NID card: Name (English), Name (Bangla), Father's Name, Mother's Name, Date of Birth, NID No. Return ONLY a JSON object with keys: name, name_bn, father_name, mother_name, dob, nid_no. Ensure Bangla text is transcribed exactly. No markdown, no explanations."
-                    )
+        # 6. Verification & Correction (Always-On Judge)
+        # User Instruction: Always call judge to verify/fix names (spelling, spacing, typos).
+        # Constraint: Do NOT change DOB or NID No unless critical. Trust Scribe for numbers.
+        
+        logger.info("Running Qwen3-VL Judge for Verification...")
+        try:
+            success, encoded_norm = cv2.imencode('.jpg', image)
+            if success:
+                import json
+                scribe_json = json.dumps(final_result, ensure_ascii=False)
+                
+                # Dynamic Prompt Generation based on Schema
+                schema_keys = list(final_result.keys())
+                
+                # Base Prompt
+                verification_prompt = (
+                    f"You are a professional OCR Proofreader. \n"
+                    f"Here is the raw extraction from a Scribe: {scribe_json}\n"
+                    f"Task:\n"
+                )
+                
+                # Dynamic Rules
+                if "name" in schema_keys or "name_bn" in schema_keys:
+                    verification_prompt += f"1. Verify and fix spelling, spacing, and typos in 'name' (English). For 'name_bn' (Bangla), extract it from the image if missing or invalid, as the Scribe may not capture Bangla.\n"
+                
+                if "address_bn" in schema_keys:
+                    verification_prompt += f"3. Extract or Verify the Bangla Address ('address_bn'). Ensure it matches the image text exactly.\n"
+                
+                if "place_of_birth" in schema_keys:
+                    verification_prompt += f"4. Verify 'place_of_birth'.\n"
+
+                if "mrz_line1" in schema_keys or "mrz_line2" in schema_keys or "mrz_line3" in schema_keys:
+                     verification_prompt += f"5. Extract the MRZ (Machine Readable Zone) lines at the bottom of the card into 'mrz_line1', 'mrz_line2', 'mrz_line3'. They consist of uppercase letters, numbers, and '<'. Ensure strict accuracy.\n"
+
+                # Critical Preservation Rules
+                verification_prompt += f"6. CRITICAL: Do NOT change 'dob', 'nid_no', 'issue_date', 'blood_group' unless they are visually contradictory to the image. Trust the Scribe's numbers/dates.\n"
+                
+                # Return Format
+                verification_prompt += f"7. Return the corrected JSON object ONLY. No markdown."
+
+                # Note: We rely on call_vllm logic to pick up OLLAMA_URL for this model name
+                qwen_result = await call_vllm(
+                    encoded_norm.tobytes(), 
+                    model_name="qwen3-vl:8b-instruct",
+                    prompt_text=verification_prompt
+                )
+                
+                if 'choices' in qwen_result and len(qwen_result['choices']) > 0:
+                    qwen_text = qwen_result['choices'][0]['message']['content']
+                    logger.info(f"Qwen Verification Output: {qwen_text[:200]}...")
                     
-                    if 'choices' in qwen_result and len(qwen_result['choices']) > 0:
-                        qwen_text = qwen_result['choices'][0]['message']['content']
-                        logger.info(f"Qwen Fallback Output: {qwen_text[:200]}...")
-                        
-                        import json
-                        import re
-                        try:
-                            # Try to parse JSON
-                            json_match = re.search(r'\{.*\}', qwen_text, re.DOTALL)
-                            if json_match:
-                                qwen_extracted = json.loads(json_match.group(0))
-                            else:
-                                # Fallback to schema engine on Qwen text
-                                qwen_extracted = run_schema_pipeline(schema, qwen_text, image)
+                    import re
+                    try:
+                        # Try to parse JSON
+                        json_match = re.search(r'\{.*\}', qwen_text, re.DOTALL)
+                        if json_match:
+                            qwen_verified = json.loads(json_match.group(0))
+                            
+                            # Merge/Update logic
+                            # We blindly trust the Judge for names/text, but we double-check logic for numbers.
+                            
+                            for k, v in qwen_verified.items():
+                                # Safety: Don't overwrite existing numeric/date fields with empty or null if Judge failed
+                                # Added issue_date and blood_group to protected fields
+                                if k in ['dob', 'nid_no', 'issue_date', 'blood_group'] and not v:
+                                    continue
                                 
-                            # Merge into final result
-                            for k, v in qwen_extracted.items():
-                                if not final_result.get(k) and v:
-                                    final_result[k] = v
-                                    logger.info(f"Updated {k} from Qwen result")
-                        except Exception as parse_e:
-                            logger.error(f"Failed to parse Qwen output: {parse_e}")
-            except Exception as e:
-                logger.error(f"Qwen fallback failed: {e}")
+                                # Text fields: Update unconditionally
+                                if k in ['name', 'name_bn', 'address_bn', 'place_of_birth', 'mrz_line1', 'mrz_line2', 'mrz_line3']:
+                                    if v:
+                                        final_result[k] = v
+                                        logger.info(f"Judge corrected {k}: {v}")
+                                else:
+                                    # For protected fields, update only if missing in Scribe
+                                    if not final_result.get(k) and v:
+                                        final_result[k] = v
+                                        logger.info(f"Judge filled missing {k}: {v}")
+                                    # If Scribe has it, we KEEP Scribe's value
+                        else:
+                            logger.warning("Judge output did not contain valid JSON.")
+                    except Exception as parse_e:
+                        logger.error(f"Failed to parse Judge output: {parse_e}")
+        except Exception as e:
+            logger.error(f"Qwen Judge failed: {e}")
         
     # 6. Save Result
     save_result(job_id, final_result)
