@@ -36,7 +36,7 @@ Location: `g:\_era\vllm-ocr\backend`
     ```
 3.  **Activate Virtual Environment**:
     ```powershell
-    .\.venv\Scripts\activate
+    .\venv\Scripts\activate
     ```
 4.  **Install Dependencies**:
     ```powershell
