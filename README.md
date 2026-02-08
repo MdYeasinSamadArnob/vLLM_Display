@@ -38,6 +38,7 @@ Location: `g:\_era\vllm-ocr\backend`
     ```powershell
     .\venv\Scripts\activate
     ```
+    source venv/bin/activate
 4.  **Install Dependencies**:
     ```powershell
     pip install -r requirements.txt
@@ -64,6 +65,7 @@ Location: `g:\_era\vllm-ocr\backend-pipeline`
     ```powershell
     .\.venv\Scripts\activate
     ```
+    source .venv/bin/activate
 4.  **Install Dependencies**:
     ```powershell
     pip install -r requirements.txt

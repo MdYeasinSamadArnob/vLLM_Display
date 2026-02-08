@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.11.200.99:8001/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.11.200.99:8000/api/v1';
+const PIPELINE_URL = process.env.NEXT_PUBLIC_PIPELINE_URL || 'http://10.11.200.99:8001';
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -54,17 +55,17 @@ export const submitPipelineJob = async (file: File, schema?: string): Promise<Pi
   if (schema) formData.append('schema', schema);
 
   // Use the port 8001 directly for the backend pipeline
-  const pipelineUrl = 'http://localhost:8001'; 
-  const response = await axios.post(`${pipelineUrl}/v1/ocr/schema`, formData, {
-     headers: { 'Content-Type': 'multipart/form-data' }
+  // const pipelineUrl = 'http://localhost:8001';
+  const response = await axios.post(`${PIPELINE_URL}/v1/ocr/schema`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
   });
   return response.data;
 };
 
 export const getPipelineResult = async (jobId: string) => {
-    const pipelineUrl = 'http://localhost:8001';
-    const response = await axios.get(`${pipelineUrl}/v1/ocr/results/${jobId}`);
-    return response.data;
+  // const pipelineUrl = 'http://localhost:8001';
+  const response = await axios.get(`${PIPELINE_URL}/v1/ocr/results/${jobId}`);
+  return response.data;
 };
 
 export const fetchBenchmarks = async () => {
