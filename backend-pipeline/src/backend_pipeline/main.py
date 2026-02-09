@@ -7,6 +7,7 @@ import os
 import signal
 from fastapi.middleware.cors import CORSMiddleware
 from .api.routes import router as api_router
+from .api.fast_ocr import router as fast_ocr_router
 from .queue.redis_streams import init_stream
 
 @asynccontextmanager
@@ -62,6 +63,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+app.include_router(fast_ocr_router, prefix="/api/v1/ocr", tags=["fast-ocr"])
 
 @app.get("/health")
 async def health():

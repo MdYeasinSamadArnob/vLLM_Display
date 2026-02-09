@@ -13,44 +13,24 @@ import asyncio
 
 logger = logging.getLogger(__name__)
 
-async def process_job(job: dict):
+
+async def process_image_core(image_bytes: bytes, mode: str = "text", schema: dict = None, job_id: str = "direct"):
     """
-    Process a single OCR job.
-    1. Preprocess
-    2. Generate Views
-    3. Run OCR on views
-    4. Consensus
-    5. Schema/Text Extraction
-    6. Save Result
+    Core OCR processing logic, decoupled from Redis job structure.
+    Returns the final result dictionary.
     """
     start_time = time.time()
-    job_id = job.get("job_id")
-    logger.info(f"Processing job {job_id}")
     
-    # Decode image
-    # Assuming job["image_bytes"] is passed as base64 string or bytes
-    # In redis_streams.py we decided to pass it through. 
-    # If it came from API, it might be bytes. 
-    # But JSON serialization in Redis means it likely needs to be base64 string if inside JSON.
-    # Let's assume it's base64 encoded string in the job dict.
-    
-    import base64
-    image_data = job.get("image_bytes")
-    if isinstance(image_data, str):
-        image_bytes = base64.b64decode(image_data)
-    else:
-        image_bytes = image_data
-        
     # 1. Preprocess
     t0 = time.time()
     image = normalize(image_bytes)
     t1 = time.time()
-    logger.info(f"[Timing] Preprocessing: {(t1-t0)*1000:.2f}ms")
+    logger.info(f"[{job_id}] [Timing] Preprocessing: {(t1-t0)*1000:.2f}ms")
     
     # 2. Generate Views
     views = generate_views(image)
     t2 = time.time()
-    logger.info(f"[Timing] View Generation: {(t2-t1)*1000:.2f}ms")
+    logger.info(f"[{job_id}] [Timing] View Generation: {(t2-t1)*1000:.2f}ms")
     
     # 3. Run OCR on views (Parallelize)
     ocr_tasks = []
@@ -68,7 +48,7 @@ async def process_job(job: dict):
                     "offset_y": off_y
                 }
             except Exception as e:
-                logger.error(f"OCR failed for a view: {e}")
+                logger.error(f"[{job_id}] OCR failed for a view: {e}")
                 return None
         return None
 
@@ -79,29 +59,29 @@ async def process_job(job: dict):
     t3_start = time.time()
     results = await asyncio.gather(*ocr_tasks)
     t3_end = time.time()
-    logger.info(f"[Timing] Parallel OCR (5 Views): {(t3_end-t3_start)*1000:.2f}ms")
+    logger.info(f"[{job_id}] [Timing] Parallel OCR (5 Views): {(t3_end-t3_start)*1000:.2f}ms")
     
     ocr_outputs = [r for r in results if r is not None]
     
     # 4. Consensus
     merged = consensus(ocr_outputs)
     t4 = time.time()
-    logger.info(f"[Timing] Consensus: {(t4-t3_end)*1000:.2f}ms")
+    logger.info(f"[{job_id}] [Timing] Consensus: {(t4-t3_end)*1000:.2f}ms")
     
     # 5. Postprocess
-    mode = job.get("mode", "text")
     if mode == "text":
         # Just return the text from consensus
         final_result = {"text": merged}
     else:
-        schema = job.get("schema", {})
+        # Ensure schema is not None
+        schema = schema or {}
         final_result = run_schema_pipeline(schema, merged, image)
         
         # 6. Verification & Correction (Always-On Judge)
         # User Instruction: Always call judge to verify/fix names (spelling, spacing, typos).
         # Constraint: Do NOT change DOB or NID No unless critical. Trust Scribe for numbers.
         
-        logger.info("Running Qwen3-VL Judge for Verification...")
+        logger.info(f"[{job_id}] Running Qwen3-VL Judge for Verification...")
         t_judge_start = time.time()
         try:
             success, encoded_norm = cv2.imencode('.jpg', image)
@@ -147,7 +127,7 @@ async def process_job(job: dict):
                 
                 if 'choices' in qwen_result and len(qwen_result['choices']) > 0:
                     qwen_text = qwen_result['choices'][0]['message']['content']
-                    logger.info(f"Qwen Verification Output: {qwen_text[:200]}...")
+                    logger.info(f"[{job_id}] Qwen Verification Output: {qwen_text[:200]}...")
                     
                     import re
                     try:
@@ -169,25 +149,56 @@ async def process_job(job: dict):
                                 if k in ['name', 'name_bn', 'address_bn', 'place_of_birth', 'mrz_line1', 'mrz_line2', 'mrz_line3']:
                                     if v:
                                         final_result[k] = v
-                                        logger.info(f"Judge corrected {k}: {v}")
+                                        logger.info(f"[{job_id}] Judge corrected {k}: {v}")
                                 else:
                                     # For protected fields, update only if missing in Scribe
                                     if not final_result.get(k) and v:
                                         final_result[k] = v
-                                        logger.info(f"Judge filled missing {k}: {v}")
+                                        logger.info(f"[{job_id}] Judge filled missing {k}: {v}")
                                     # If Scribe has it, we KEEP Scribe's value
                         else:
-                            logger.warning("Judge output did not contain valid JSON.")
+                            logger.warning(f"[{job_id}] Judge output did not contain valid JSON.")
                     except Exception as parse_e:
-                        logger.error(f"Failed to parse Judge output: {parse_e}")
+                        logger.error(f"[{job_id}] Failed to parse Judge output: {parse_e}")
         except Exception as e:
-            logger.error(f"Qwen Judge failed: {e}")
+            logger.error(f"[{job_id}] Qwen Judge failed: {e}")
         
         t_judge_end = time.time()
-        logger.info(f"[Timing] Judge Verification: {(t_judge_end-t_judge_start)*1000:.2f}ms")
+        logger.info(f"[{job_id}] [Timing] Judge Verification: {(t_judge_end-t_judge_start)*1000:.2f}ms")
         
-    # 6. Save Result
-    save_result(job_id, final_result)
     end_time = time.time()
-    logger.info(f"[Timing] Total Pipeline Duration: {(end_time-start_time)*1000:.2f}ms")
+    logger.info(f"[{job_id}] [Timing] Total Pipeline Duration: {(end_time-start_time)*1000:.2f}ms")
+    return final_result
+
+async def process_job(job: dict):
+    """
+    Process a single OCR job from Redis Stream.
+    Wrapper around process_image_core.
+    """
+    job_id = job.get("job_id")
+    logger.info(f"Processing job {job_id}")
+    
+    # Decode image
+    # Assuming job["image_bytes"] is passed as base64 string or bytes
+    # In redis_streams.py we decided to pass it through. 
+    # If it came from API, it might be bytes. 
+    # But JSON serialization in Redis means it likely needs to be base64 string if inside JSON.
+    # Let's assume it's base64 encoded string in the job dict.
+    
+    import base64
+    image_data = job.get("image_bytes")
+    if isinstance(image_data, str):
+        image_bytes = base64.b64decode(image_data)
+    else:
+        image_bytes = image_data
+        
+    mode = job.get("mode", "text")
+    schema = job.get("schema", {})
+    
+    # Call Core Logic
+    final_result = await process_image_core(image_bytes, mode, schema, job_id)
+    
+    # 6. Save Result (Redis specific)
+    save_result(job_id, final_result)
     logger.info(f"Job {job_id} completed")
+

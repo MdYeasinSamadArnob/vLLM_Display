@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.11.200.99:8000/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://10.11.200.99:8002/api/v1';
 const PIPELINE_URL = process.env.NEXT_PUBLIC_PIPELINE_URL || 'http://10.11.200.99:8001';
 
 export const api = axios.create({

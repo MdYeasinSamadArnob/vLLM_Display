@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     # Model Settings
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_BASE_URL: str = "http://10.11.200.109:11434"
     UPLOAD_DIR: str = os.path.join(os.getcwd(), "uploads")
     
     model_config = SettingsConfigDict(
