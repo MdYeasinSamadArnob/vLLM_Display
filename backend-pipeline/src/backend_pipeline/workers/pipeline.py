@@ -10,6 +10,7 @@ from ..postprocess.consensus import consensus
 from ..postprocess.schema_engine import run_schema_pipeline
 from ..storage.results_store import save_result
 import asyncio
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ async def process_image_core(image_bytes: bytes, mode: str = "text", schema: dic
     Core OCR processing logic, decoupled from Redis job structure.
     Returns the final result dictionary.
     """
+    import os  # Explicitly import os here
+    logger.info(f"[{job_id}] Processing image core... (Debug: os imported)")
     start_time = time.time()
     
     # 1. Preprocess
@@ -41,7 +44,12 @@ async def process_image_core(image_bytes: bytes, mode: str = "text", schema: dic
             try:
                 # Add slight delay to prevent overwhelming the VLLM batch scheduler if needed
                 # await asyncio.sleep(0.01) 
-                result = await call_vllm(encoded_view.tobytes())
+                
+                # Explicitly read env vars at runtime to avoid import-time default issues
+                model_name = os.getenv("VLLM_MODEL_NAME", "Qwen/Qwen3-VL-8B-Instruct")
+                base_url = os.getenv("VLLM_BASE_URL", "http://10.11.200.99:8092/")
+                
+                result = await call_vllm(encoded_view.tobytes(), model_name=model_name, api_url=base_url)
                 return {
                     "result": result,
                     "offset_x": off_x,
@@ -119,9 +127,14 @@ async def process_image_core(image_bytes: bytes, mode: str = "text", schema: dic
                 verification_prompt += f"7. Return the corrected JSON object ONLY. No markdown."
 
                 # Note: We rely on call_vllm logic to pick up OLLAMA_URL for this model name
+                # But here we explicitly support VLLM_JUDGE_BASE_URL if set
+                judge_model = os.getenv("VLLM_JUDGE_MODEL_NAME", os.getenv("VLLM_MODEL_NAME", "Qwen/Qwen3-VL-8B-Instruct"))
+                judge_url = os.getenv("VLLM_JUDGE_BASE_URL", os.getenv("VLLM_BASE_URL"))
+                
                 qwen_result = await call_vllm(
                     encoded_norm.tobytes(), 
-                    model_name="qwen3-vl:8b-instruct",
+                    model_name=judge_model,
+                    api_url=judge_url,
                     prompt_text=verification_prompt
                 )
                 

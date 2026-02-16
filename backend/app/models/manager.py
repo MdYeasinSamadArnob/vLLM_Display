@@ -12,8 +12,11 @@ class ModelManager:
         self.register_model(OllamaAdapter("deepseek-ocr:latest")) 
         self.register_model(OllamaAdapter("qwen3-vl:8b"))
         
-        # Register HunyuanOCR on external host using VLLM Adapter
-        self.register_model(VLLMAdapter("tencent/HunyuanOCR", base_url="http://10.11.200.99:8091/"))
+        # Register VLLM hosted model from env
+        import os
+        vllm_model_name = os.getenv("VLLM_MODEL_NAME", "Qwen/Qwen3-VL-8B-Instruct")
+        vllm_base_url = os.getenv("VLLM_BASE_URL", "http://10.11.200.99:8092/")
+        self.register_model(VLLMAdapter(vllm_model_name, base_url=vllm_base_url))
         
         self._active_model_name = "qwen3-vl:8b" # Set default active model
         # self.register_model(OllamaAdapter("llama3.2:3b")) # Text only, but good for testing

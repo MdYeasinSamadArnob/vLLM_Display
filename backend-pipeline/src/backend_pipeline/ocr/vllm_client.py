@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 VLLM_URL = os.getenv("VLLM_URL", os.getenv("VLLM_OCR_URL", "http://10.11.200.99:8091/"))
 OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://10.11.200.109:11434")
 
-DEFAULT_MODEL = "tencent/HunyuanOCR"
+DEFAULT_MODEL = os.getenv("VLLM_MODEL_NAME", "Qwen/Qwen3-VL-8B-Instruct")
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def call_vllm(image_bytes: bytes, model_name: str = DEFAULT_MODEL, api_url: str = None, prompt_text: str = None) -> dict:
@@ -20,13 +20,14 @@ async def call_vllm(image_bytes: bytes, model_name: str = DEFAULT_MODEL, api_url
     """
     # Resolve URLs dynamically to support late env loading
     current_ollama_url = os.getenv("OLLAMA_BASE_URL", "http://10.11.200.109:11434")
-    current_vllm_url = os.getenv("VLLM_URL", os.getenv("VLLM_OCR_URL", "http://10.11.200.99:8091/"))
+    current_vllm_url = os.getenv("VLLM_URL", os.getenv("VLLM_OCR_URL", "http://10.11.200.99:8092/"))
 
     # Determine API URL
     if api_url:
         base_url = api_url
     # elif model_name == "qwen3-vl:8b" and OLLAMA_URL:
-    elif model_name == "qwen3-vl:8b-instruct" and current_ollama_url:
+    elif model_name == os.getenv("VLLM_MODEL_NAME") and current_ollama_url and "ollama" in current_vllm_url:
+        # Fallback logic if needed, but primary path should use VLLM_URL
         base_url = current_ollama_url
     else:
         base_url = current_vllm_url

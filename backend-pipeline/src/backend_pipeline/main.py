@@ -4,6 +4,10 @@ from contextlib import asynccontextmanager
 import subprocess
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load .env variables naturally from the execution directory
+load_dotenv()
 import signal
 from fastapi.middleware.cors import CORSMiddleware
 from .api.routes import router as api_router

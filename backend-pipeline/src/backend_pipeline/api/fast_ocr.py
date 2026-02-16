@@ -4,6 +4,7 @@ from typing import Optional, Literal
 import logging
 import time
 import json
+import base64
 from pydantic import BaseModel, Field
 from backend_pipeline.workers.pipeline import process_image_core
 
@@ -91,4 +92,53 @@ async def ocr_direct(
         
     except Exception as e:
         logger.error(f"Error in direct OCR [{job_id}]: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+class DirectOCRBase64Request(BaseModel):
+    image_base64: str = Field(..., description="Base64 encoded image string")
+    type: Literal["nid_front", "nid_back"] = Field(..., description="Type of document: 'nid_front' or 'nid_back'")
+
+@router.post("/direct/base64")
+async def ocr_direct_base64(request: DirectOCRBase64Request):
+    """
+    Direct OCR from Base64 string.
+    """
+    start_time = time.time()
+    job_id = f"direct-b64-{time.time_ns()}"
+    
+    logger.info(f"Received direct OCR (base64) request [{job_id}] for type: {request.type}")
+    
+    try:
+        # Decode base64
+        # Handle potential data URI scheme prefixes
+        b64_str = request.image_base64
+        if "," in b64_str:
+            b64_str = b64_str.split(",")[1]
+            
+        image_bytes = base64.b64decode(b64_str)
+        
+        # Determine schema
+        if request.type == "nid_front":
+            schema = NID_FRONT_SCHEMA_DICT
+        elif request.type == "nid_back":
+            schema = NID_BACK_SCHEMA_DICT
+        else:
+             # Should be caught by Pydantic validation, but safety check
+            raise HTTPException(status_code=400, detail="Invalid type")
+
+        # Process
+        result = await process_image_core(image_bytes, mode="schema", schema=schema, job_id=job_id)
+        
+        duration = (time.time() - start_time) * 1000
+        logger.info(f"Direct OCR (base64) request [{job_id}] completed in {duration:.2f}ms")
+        
+        return {
+            "status": "success",
+            "job_id": job_id,
+            "duration_ms": duration,
+            "data": result
+        }
+
+    except Exception as e:
+        logger.error(f"Error in direct OCR (base64) [{job_id}]: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
